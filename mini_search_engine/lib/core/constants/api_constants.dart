@@ -1,5 +1,5 @@
 class ApiConstants {
-  static const String baseUrl = 'http://127.0.0.1:5000'; // Change to 10.0.2.2:5000 for Android emulator
+  static const String baseUrl = 'https://Alpha2005elhagary.pythonanywhere.com'; // Backend Python API
   
   // Supabase Constants
   static const String supabaseUrl = 'https://oaysvjmzckqmnvyeoher.supabase.co';
