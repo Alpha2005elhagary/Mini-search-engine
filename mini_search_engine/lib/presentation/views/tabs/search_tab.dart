@@ -163,8 +163,15 @@ class _SearchTabState extends State<SearchTab> {
                       const Icon(Icons.lightbulb_outline, color: Colors.orangeAccent),
                       const SizedBox(width: 10),
                       const Text('Did you mean: ', style: TextStyle(color: Colors.white70)),
-                      Text(vm.suggestion!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      const Spacer(),
+                      Expanded(
+                        child: Text(
+                          vm.suggestion!, 
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                          textDirection: _isArabic(vm.suggestion!) ? TextDirection.rtl : TextDirection.ltr,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       TextButton(
                         onPressed: () {
                           _searchController.text = vm.suggestion!;

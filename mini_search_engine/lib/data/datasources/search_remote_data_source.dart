@@ -117,7 +117,10 @@ class SearchRemoteDataSource {
       );
 
       // 3. Extract text on-device for indexing
-      final content = await _extractText(name, uint8Bytes);
+      String content = await _extractText(name, uint8Bytes);
+      
+      // 3b. Sanitize content (Remove null bytes for PostgreSQL)
+      content = content.replaceAll('\u0000', '');
 
       // 4. Upsert into Supabase Database
       await _supabase.from('documents').upsert({
