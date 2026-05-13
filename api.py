@@ -10,13 +10,25 @@ app = Flask(__name__)
 # Enable CORS for all routes to allow Flutter Web/Emulator connections
 CORS(app)
 
-UPLOAD_FOLDER = 'data'
+# Set the base directory to the location of api.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'data')
+
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 indexer = Indexer()
 search_engine = None
+
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({
+        'status': 'online',
+        'message': 'Mini Search Engine API is running!',
+        'endpoints': ['/upload', '/index-url', '/build', '/search', '/stats']
+    }), 200
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
