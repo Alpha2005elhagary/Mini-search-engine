@@ -39,9 +39,15 @@ class _HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthView()));
     }
   }
-
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<SearchViewModel>();
+    
+    // Sync tab controller when VM state changes
+    if (_tabController.index != vm.activeTabIndex) {
+      _tabController.animateTo(vm.activeTabIndex);
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -71,6 +77,7 @@ class _HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin
           indicatorWeight: 3,
           labelColor: Colors.cyanAccent,
           unselectedLabelColor: Colors.white70,
+          onTap: (index) => context.read<SearchViewModel>().setTab(index),
           tabs: const [
             Tab(icon: Icon(Icons.search_rounded), text: 'Search'),
             Tab(icon: Icon(Icons.auto_awesome_mosaic_rounded), text: 'Index'),
@@ -89,7 +96,7 @@ class _HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin
         child: SafeArea(
           child: TabBarView(
             controller: _tabController,
-            children: const [
+            children: [
               SearchTab(),
               IndexTab(),
               StatsTab(),

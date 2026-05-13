@@ -29,6 +29,19 @@ class SearchViewModel extends ChangeNotifier {
   bool _statsHasError = false;
   bool get statsHasError => _statsHasError;
 
+  // New: Global navigation and filtering
+  int _activeTabIndex = 0;
+  int get activeTabIndex => _activeTabIndex;
+
+  String? _predefinedFileType;
+  String? get predefinedFileType => _predefinedFileType;
+
+  void setTab(int index, {String? filterType}) {
+    _activeTabIndex = index;
+    _predefinedFileType = filterType;
+    notifyListeners();
+  }
+
   Future<void> search(String query, {String? dateFrom, String? dateTo, String? fileType}) async {
     if (query.isEmpty) return;
     _isLoading = true;
@@ -67,9 +80,12 @@ class SearchViewModel extends ChangeNotifier {
     }
   }
 
+  // Alias for UI consistency
+  Future<void> getStats() => fetchStats();
+
   Future<void> buildIndex(List<String> formats, String folder) async {
     _isBuilding = true;
-    _buildMessage = "Building index... please wait";
+    _buildMessage = "Indexing files... please wait";
     notifyListeners();
 
     try {
@@ -77,7 +93,7 @@ class SearchViewModel extends ChangeNotifier {
       _buildMessage = response['message'];
       await fetchStats(); // Refresh stats
     } catch (e) {
-      _buildMessage = "Error building index: $e";
+      _buildMessage = "Error: $e";
       if (kDebugMode) print('Build index error: $e');
     } finally {
       _isBuilding = false;
@@ -93,6 +109,7 @@ class SearchViewModel extends ChangeNotifier {
     try {
       final response = await repository.uploadFile(name, bytes);
       _buildMessage = response['message'];
+      await fetchStats(); // Automatically refresh stats after indexing
     } catch (e) {
       _buildMessage = "Error uploading file: $e";
       if (kDebugMode) print('Upload file error: $e');
