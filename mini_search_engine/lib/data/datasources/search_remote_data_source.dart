@@ -16,79 +16,68 @@ class SearchRemoteDataSource {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('User not logged in');
 
-      _saveSearchToHistory(query);
+      // 1. Call the Supabase Edge Function for advanced search
+      final response = await _supabase.functions.invoke(
+        'search',
+        body: {
+          'query': query,
+          'fileType': fileType,
+          'fromDate': dateFrom,
+          'toDate': dateTo,
+        },
+      );
 
-      // 1. Fetch user's OWN documents only (strict user_id filter)
-      var dbQuery = _supabase
-          .from('documents')
-          .select('filename, file_type, content, created_at')
-          .eq('user_id', userId);
-
-      if (fileType != null) dbQuery = dbQuery.eq('file_type', fileType);
-
-      final List<dynamic> allDocs = await dbQuery;
-
-      // 2. Local search: filter documents that match the query
-      final lowerQuery = query.toLowerCase()
-          .replaceAll(RegExp(r'~\d*'), '') // remove fuzzy notation
-          .replaceAll(RegExp(r'[*?]'), '') // remove wildcards
-          .replaceAll(RegExp(r'\b(AND|OR|NOT)\b'), '') // remove boolean ops
-          .trim();
-
-      final results = allDocs.where((doc) {
-        final content = (doc['content'] as String? ?? '').toLowerCase();
-        final filename = (doc['filename'] as String? ?? '').toLowerCase();
-        return content.contains(lowerQuery) || filename.contains(lowerQuery);
-      }).map((doc) => {
-        'filename': doc['filename'],
-        'fileType': doc['file_type'],
-        'date': doc['created_at'],
-        'snippet': _generateSnippet(doc['content'] ?? '', query),
-      }).toList();
-
-      // 3. "Did you mean?" - built LOCALLY from this user's OWN words only
-      // No server call. No leakage possible.
-      String? suggestion;
-      if (results.isEmpty && lowerQuery.isNotEmpty) {
-        suggestion = _localSuggest(lowerQuery, allDocs);
+      if (response.status != 200) {
+        print('Edge Function error: ${response.data}');
+        return _searchDirect(query); // Fallback to RPC
       }
 
-      return {'results': results, 'suggestion': suggestion};
+      return {
+        'results': response.data['results'],
+        'suggestion': response.data['suggestion'],
+      };
     } catch (e) {
       print('Search error: $e');
-      return {'results': [], 'suggestion': null};
+      return _searchDirect(query); // Fallback to RPC
     }
   }
 
   /// Build a "Did you mean?" suggestion purely from the user's OWN document words
   String? _localSuggest(String query, List<dynamic> userDocs) {
-    // Collect all words from this user's documents
+    // 1. Clean the query from special operators for better matching
+    final cleanQuery = query.toLowerCase()
+        .replaceAll(RegExp(r'~\d*'), '')
+        .replaceAll(RegExp(r'[*?]'), '')
+        .replaceAll(RegExp(r'\b(AND|OR|NOT)\b', caseSensitive: false), '')
+        .trim();
+        
+    if (cleanQuery.isEmpty) return null;
+
+    // 2. Collect all words from this user's documents
     final Set<String> vocabulary = {};
     for (final doc in userDocs) {
-      final words = (doc['content'] as String? ?? '')
-          .toLowerCase()
-          .split(RegExp(r'\W+'))
-          .where((w) => w.length > 3);
+      final content = (doc['content'] as String? ?? '').toLowerCase();
+      final words = content.split(RegExp(r'\W+')).where((w) => w.length > 3);
       vocabulary.addAll(words);
-      // Also add filename words
-      vocabulary.addAll(
-        (doc['filename'] as String? ?? '')
-            .toLowerCase()
-            .split(RegExp(r'[\W_]+'))
-            .where((w) => w.length > 2),
-      );
+      
+      final filename = (doc['filename'] as String? ?? '').toLowerCase();
+      vocabulary.addAll(filename.split(RegExp(r'[\W_]+')).where((w) => w.length > 2));
     }
 
     if (vocabulary.isEmpty) return null;
 
-    // Find the closest word using Levenshtein distance
+    // 3. Find the closest word using Levenshtein distance
     String? best;
-    int bestDist = 999;
+    double bestSimilarity = -1.0;
+    
     for (final word in vocabulary) {
-      final dist = _levenshtein(query, word);
-      // Only suggest if similar enough (distance <= 2 or similarity > 60%)
-      if (dist < bestDist && dist <= 2) {
-        bestDist = dist;
+      final dist = _levenshtein(cleanQuery, word);
+      final maxLength = cleanQuery.length > word.length ? cleanQuery.length : word.length;
+      final similarity = 1.0 - (dist / maxLength);
+      
+      // Much stricter matching for suggestions
+      if (similarity > bestSimilarity && similarity >= 0.6) {
+        bestSimilarity = similarity;
         best = word;
       }
     }
@@ -128,10 +117,13 @@ class SearchRemoteDataSource {
   /// Direct fallback search using Supabase RPC
   Future<Map<String, dynamic>> _searchDirect(String query) async {
     try {
-      // Save history even in fallback mode
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return {'results': [], 'suggestion': null};
+
+      // 1. Save history
       _saveSearchToHistory(query);
 
-      final userId = _supabase.auth.currentUser?.id;
+      // 2. Direct search via RPC
       final List<dynamic> response = await _supabase.rpc(
         'search_documents',
         params: {
@@ -143,14 +135,25 @@ class SearchRemoteDataSource {
       final results = response.map((doc) => {
         'filename': doc['filename'],
         'type': doc['file_type'],
-        'score': 1.0,
-        'date': doc['created_at'],
-        'snippet': _generateSnippet(doc['content'], query),
+        'score': doc['rank'] ?? 1.0,
+        'date': doc['modified_at'] ?? doc['created_at'],
+        'snippet': doc['snippet'] ?? _generateSnippet(doc['content'] ?? '', query),
       }).toList();
 
-      return {'results': results, 'suggestion': null};
+      // 3. Fallback suggestion logic if no results
+      String? suggestion;
+      if (results.isEmpty) {
+        final List<dynamic> allDocs = await _supabase
+            .from('documents')
+            .select('filename, content')
+            .eq('user_id', userId);
+        suggestion = _localSuggest(query, allDocs);
+      }
+
+      return {'results': results, 'suggestion': suggestion};
     } catch (e) {
-      throw Exception('Database search failed: $e');
+      print('Database fallback search failed: $e');
+      return {'results': [], 'suggestion': null};
     }
   }
 

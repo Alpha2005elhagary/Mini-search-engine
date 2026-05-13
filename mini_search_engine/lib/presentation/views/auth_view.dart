@@ -77,9 +77,9 @@ class _AuthViewState extends State<AuthView> {
                     child: Container(
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
+                        color: Colors.white.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -99,7 +99,7 @@ class _AuthViewState extends State<AuthView> {
                               labelStyle: const TextStyle(color: Colors.white70),
                               prefixIcon: const Icon(Icons.email, color: Colors.cyanAccent),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.05),
+                              fillColor: Colors.white.withValues(alpha: 0.05),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                             ),
                           ),
@@ -113,7 +113,7 @@ class _AuthViewState extends State<AuthView> {
                               labelStyle: const TextStyle(color: Colors.white70),
                               prefixIcon: const Icon(Icons.lock, color: Colors.cyanAccent),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.05),
+                              fillColor: Colors.white.withValues(alpha: 0.05),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                             ),
                           ),

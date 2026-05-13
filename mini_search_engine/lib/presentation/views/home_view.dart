@@ -69,7 +69,7 @@ class _HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin
         flexibleSpace: ClipRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(color: Colors.black.withOpacity(0.2)),
+            child: Container(color: Colors.black.withValues(alpha: 0.2)),
           ),
         ),
         bottom: TabBar(

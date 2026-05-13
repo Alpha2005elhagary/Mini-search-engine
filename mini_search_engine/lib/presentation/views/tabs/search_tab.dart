@@ -92,9 +92,9 @@ class _SearchTabState extends State<SearchTab> {
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               hintText: 'Search anything...',
-                              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.1),
+                              fillColor: Colors.white.withValues(alpha: 0.1),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(15),
                                 borderSide: BorderSide.none,
@@ -112,7 +112,7 @@ class _SearchTabState extends State<SearchTab> {
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(colors: [Colors.cyan, Colors.blueAccent]),
                               borderRadius: BorderRadius.circular(15),
-                              boxShadow: [BoxShadow(color: Colors.cyan.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))],
+                              boxShadow: [BoxShadow(color: Colors.cyan.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 4))],
                             ),
                             child: const Text('Search', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                           ),
@@ -154,32 +154,46 @@ class _SearchTabState extends State<SearchTab> {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orangeAccent.withOpacity(0.2),
+                    color: Colors.orangeAccent.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.orangeAccent),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.lightbulb_outline, color: Colors.orangeAccent),
-                      const SizedBox(width: 10),
-                      const Text('Did you mean: ', style: TextStyle(color: Colors.white70)),
-                      Expanded(
-                        child: Text(
-                          vm.suggestion!, 
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                          textDirection: _isArabic(vm.suggestion!) ? TextDirection.rtl : TextDirection.ltr,
+                  child: InkWell(
+                    onTap: () {
+                      _searchController.text = vm.suggestion!;
+                      _performSearch();
+                    },
+                    child: Row(
+                      textDirection: _isArabic(vm.suggestion!) ? TextDirection.rtl : TextDirection.ltr,
+                      children: [
+                        const Icon(Icons.lightbulb_outline, color: Colors.orangeAccent),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: RichText(
+                            textAlign: TextAlign.start,
+                            textDirection: _isArabic(vm.suggestion!) ? TextDirection.rtl : TextDirection.ltr,
+                            text: TextSpan(
+                              style: const TextStyle(color: Colors.white70),
+                              children: [
+                                TextSpan(
+                                  text: _isArabic(vm.suggestion!) ? 'هل تقصد: ' : 'Did you mean: ',
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                                TextSpan(
+                                  text: vm.suggestion!,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () {
-                          _searchController.text = vm.suggestion!;
-                          _performSearch();
-                        },
-                        child: const Text('Yes', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
-                      )
-                    ],
+                        Icon(
+                          _isArabic(vm.suggestion!) ? Icons.chevron_left : Icons.chevron_right, 
+                          color: Colors.orangeAccent, 
+                          size: 20
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -260,7 +274,7 @@ class _SearchTabState extends State<SearchTab> {
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(color: Colors.cyanAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                                  decoration: BoxDecoration(color: Colors.cyanAccent.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
                                   child: Text(result.type, style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold)),
                                 ),
                               ],
@@ -274,7 +288,7 @@ class _SearchTabState extends State<SearchTab> {
                                 Flexible(
                                   child: Text(
                                     result.date.split('T')[0], // Shows only YYYY-MM-DD
-                                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -320,9 +334,7 @@ class _SearchTabState extends State<SearchTab> {
     
     // Parse <mark> tags from ts_headline
     final parts = snippet.split(RegExp(r'<mark>|</mark>'));
-    final List<String> marks = RegExp(r'<mark>(.*?)</mark>').allMatches(snippet).map((m) => m.group(1)!).toList();
     
-    int markIdx = 0;
     bool isMark = snippet.startsWith('<mark>');
 
     for (int i = 0; i < parts.length; i++) {
@@ -333,19 +345,19 @@ class _SearchTabState extends State<SearchTab> {
       spans.add(TextSpan(
         text: parts[i],
         style: TextStyle(
-          color: highlight ? Colors.cyanAccent : Colors.white.withOpacity(0.8),
+          color: highlight ? Colors.cyanAccent : Colors.white.withValues(alpha: 0.8),
           fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
-          backgroundColor: highlight ? Colors.white12 : null,
+          backgroundColor: highlight ? Colors.white.withValues(alpha: 0.12) : null,
         ),
       ));
     }
-
+ 
     return Directionality(
       textDirection: _isArabic(snippet) ? TextDirection.rtl : TextDirection.ltr,
       child: RichText(
         textAlign: TextAlign.start,
         text: TextSpan(
-          style: TextStyle(color: Colors.white.withOpacity(0.8), height: 1.5, fontSize: 14, fontFamily: 'Inter'),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.8), height: 1.5, fontSize: 14, fontFamily: 'Inter'),
           children: spans,
         ),
         maxLines: 3,
@@ -361,9 +373,9 @@ class _SearchTabState extends State<SearchTab> {
   Widget _buildFilterButton({required IconData icon, required String label, required VoidCallback onTap, VoidCallback? onClear}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -374,7 +386,7 @@ class _SearchTabState extends State<SearchTab> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  Icon(icon, color: Colors.white70, size: 16),
+                  Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 16),
                   const SizedBox(width: 6),
                   Text(label, style: const TextStyle(color: Colors.white)),
                 ],
@@ -384,9 +396,9 @@ class _SearchTabState extends State<SearchTab> {
           if (onClear != null)
             InkWell(
               onTap: onClear,
-              child: const Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: Icon(Icons.close, color: Colors.white54, size: 16),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Icon(Icons.close, color: Colors.white.withValues(alpha: 0.5), size: 16),
               ),
             )
         ],
@@ -398,15 +410,15 @@ class _SearchTabState extends State<SearchTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           dropdownColor: const Color(0xFF203A43),
           value: _selectedFileType,
-          icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+          icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7)),
           hint: const Text('Type', style: TextStyle(color: Colors.white)),
           style: const TextStyle(color: Colors.white),
           items: ['TXT', 'PDF', 'JSON', 'CSV', 'XLSX'].map((String value) {

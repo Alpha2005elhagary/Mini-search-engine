@@ -49,7 +49,7 @@ class _IndexTabState extends State<IndexTab> {
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
                     color: vm.buildMessage!.contains('Error') || vm.buildMessage!.contains('Failed') 
-                        ? Colors.redAccent.withOpacity(0.2) : Colors.greenAccent.withOpacity(0.2),
+                        ? Colors.redAccent.withValues(alpha: 0.2) : Colors.greenAccent.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: vm.buildMessage!.contains('Error') || vm.buildMessage!.contains('Failed') 
                         ? Colors.redAccent : Colors.greenAccent),
@@ -87,9 +87,9 @@ class _IndexTabState extends State<IndexTab> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.cyanAccent.withOpacity(0.1),
+                      color: Colors.cyanAccent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+                      border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
                     ),
                     child: Text(format.toUpperCase(), style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 12)),
                   );
@@ -121,7 +121,7 @@ class _IndexTabState extends State<IndexTab> {
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(colors: [Colors.purpleAccent, Colors.deepPurpleAccent]),
                       borderRadius: BorderRadius.circular(15),
-                      boxShadow: [BoxShadow(color: Colors.purple.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))],
+                      boxShadow: [BoxShadow(color: Colors.purple.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 4))],
                     ),
                     child: Center(
                       child: vm.isBuilding 

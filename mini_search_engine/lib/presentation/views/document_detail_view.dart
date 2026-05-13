@@ -103,7 +103,7 @@ class _DocumentDetailViewState extends State<DocumentDetailView> {
         style: TextStyle(
           color: isCurrent ? Colors.black : Colors.cyanAccent, 
           fontWeight: FontWeight.bold, 
-          backgroundColor: isCurrent ? Colors.orangeAccent : Colors.white12,
+          backgroundColor: isCurrent ? Colors.orangeAccent : Colors.white.withValues(alpha: 0.12),
           fontSize: 18,
         ),
       ));
@@ -170,9 +170,9 @@ class _DocumentDetailViewState extends State<DocumentDetailView> {
                     margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(15),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                     ),
                     child: Row(
                       children: [
@@ -211,7 +211,7 @@ class _DocumentDetailViewState extends State<DocumentDetailView> {
                             textAlign: TextAlign.start,
                             text: TextSpan(
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                                 fontSize: 16,
                                 height: 1.6,
                                 fontFamily: 'Inter',

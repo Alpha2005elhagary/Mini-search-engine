@@ -48,8 +48,25 @@ class SearchViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _saveSearchToSupabase(query);
       final response = await repository.search(query, dateFrom: dateFrom, dateTo: dateTo, fileType: fileType);
       _suggestion = response['suggestion'];
+      
+      // Filter out low-quality suggestions (especially for very short queries like 'if')
+      if (_suggestion != null) {
+        final q = query.toLowerCase().trim();
+        final s = _suggestion!.toLowerCase().trim();
+        
+        // 1. Calculate similarity
+        int dist = _levenshtein(q, s);
+        int maxLen = q.length > s.length ? q.length : s.length;
+        double similarity = 1.0 - (dist / maxLen);
+        
+        // 2. Suppress if similarity is too low OR it's just noise
+        if (similarity < 0.4 || s.length < 3) {
+          _suggestion = null;
+        }
+      }
       final List<dynamic> resultsJson = response['results'] ?? [];
       _results = resultsJson.map((json) => SearchResult.fromJson(json)).toList();
       
@@ -143,5 +160,19 @@ class SearchViewModel extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('Failed to save search to Supabase: $e');
     }
+  }
+
+  int _levenshtein(String s, String t) {
+    if (s == t) return 0;
+    if (s.isEmpty) return t.length;
+    if (t.isEmpty) return s.length;
+    final d = List.generate(s.length + 1, (i) => List.generate(t.length + 1, (j) => j == 0 ? i : (i == 0 ? j : 0)));
+    for (int i = 1; i <= s.length; i++) {
+      for (int j = 1; j <= t.length; j++) {
+        final cost = s[i - 1] == t[j - 1] ? 0 : 1;
+        d[i][j] = [d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost].reduce((a, b) => a < b ? a : b);
+      }
+    }
+    return d[s.length][t.length];
   }
 }

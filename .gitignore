@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 venv/
 .env
+apk/
+mini_search_engine/analysis_output.txt
+

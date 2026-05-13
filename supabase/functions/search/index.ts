@@ -36,14 +36,16 @@ serve(async (req) => {
     
     // 1. Advanced Query Parsing
     const transformToTsQuery = (query: string): string => {
-      // Handle phrases: "hello world" -> (hello <-> world)
+      if (!query) return '';
+
+      // 1. Handle phrases: "hello world" -> (hello <-> world)
       let q = query.replace(/"([^"]+)"/g, (_, phrase) => {
         const words = phrase.trim().split(/\s+/).filter((w: string) => w.length > 0);
         return words.length > 0 ? `(${words.join(' <-> ')})` : '';
       });
 
-      // Tokenize
-      const tokens = q.match(/[()]|\bAND\b|\bOR\b|\bNOT\b|[^\s()]+/gi) || [];
+      // 2. Tokenize: Operators (AND, OR, NOT), Grouping (()), Fuzzy (word~), Wildcards (*), and Words
+      const tokens = q.match(/[()]|\bAND\b|\bOR\b|\bNOT\b|[^\s()~]+~\d*|[^\s()]+/gi) || [];
       const intermediate: string[] = [];
 
       for (const token of tokens) {
@@ -53,27 +55,39 @@ serve(async (req) => {
         else if (upper === 'NOT') intermediate.push('!');
         else if (token === '(' || token === ')') intermediate.push(token);
         else {
-          let term = token.replace(/\*/g, ':*').replace(/\?/g, ':*');
-          // We keep ~ for now. If the RPC supports it, it will work. 
-          // If not, we'll need to expand it.
-          intermediate.push(term);
+          // It's a term (word, fuzzy, or wildcard)
+          let processed = token;
+          if (token.includes('~')) {
+            processed = token.split('~')[0] + ':*';
+          } else if (token.includes('*') || token.includes('?')) {
+            processed = token.replace(/[*?]/g, '') + ':*';
+          }
+          intermediate.push(processed);
         }
       }
 
-      // Insert implied & (AND)
+      // 3. Insert implied & (AND) between adjacent terms/groups
       const final: string[] = [];
       for (let i = 0; i < intermediate.length; i++) {
-        final.push(intermediate[i]);
+        const curr = intermediate[i];
+        final.push(curr);
+        
         if (i < intermediate.length - 1) {
-          const curr = intermediate[i];
           const next = intermediate[i + 1];
-          const isTerm = (t: string) => !['&', '|', '!', '(', ')'].includes(t);
-          if ((isTerm(curr) || curr === ')') && (isTerm(next) || next === '(' || next === '!')) {
+          const isTermOrGroupOpen = (t: string) => !['&', '|', '!', '(', ')'].includes(t) || t === '(';
+          const isTermOrGroupClose = (t: string) => !['&', '|', '!', '(', ')'].includes(t) || t === ')';
+          
+          // Insert & if we have:
+          // [Term or )] followed by [Term or ( or !]
+          const currIsOperand = !['&', '|', '!', '('].includes(curr);
+          const nextIsOperandStart = !['&', '|', ')'].includes(next);
+          
+          if (currIsOperand && nextIsOperandStart) {
             final.push('&');
           }
         }
       }
-      return final.join(' ');
+      return final.join('');
     };
 
     const parsedQuery = transformToTsQuery(rawQuery);
@@ -100,11 +114,17 @@ serve(async (req) => {
     // 4. Suggestion Logic (Only on zero results)
     let suggestion = null
     if (!results || results.length === 0) {
-       const { data: suggestedTerm } = await supabaseClient.rpc(
-         'suggest_correction',
-         { p_query: rawQuery, p_user_id: userId }
-       )
-       suggestion = suggestedTerm
+      // 4. Suggestions: Clean the query before asking for spelling corrections
+      const cleanQuery = rawQuery.replace(/~\d*/g, '').replace(/[*?]/g, '').replace(/\b(AND|OR|NOT)\b/gi, '').trim();
+      
+      const { data: suggestionData } = await supabaseClient.rpc(
+        'suggest_correction',
+        { 
+          p_query: cleanQuery,
+          p_user_id: userId
+        }
+      );
+      suggestion = suggestionData
     }
 
     return new Response(

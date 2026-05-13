@@ -85,6 +85,46 @@ def process_supabase_file():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+def transform_to_tsquery(query):
+    if not query:
+        return ''
+    
+    # 1. Handle phrases
+    import re
+    q = re.sub(r'"([^"]+)"', lambda m: f"({' <-> '.join(m.group(1).split())})", query)
+    
+    # 2. Tokenize
+    tokens = re.findall(r'[()]|\bAND\b|\bOR\b|\bNOT\b|[^\s()~]+~\d*|[^\s()]+', q, re.IGNORECASE)
+    intermediate = []
+    
+    for token in tokens:
+        upper = token.upper()
+        if upper == 'AND': intermediate.append('&')
+        elif upper == 'OR': intermediate.append('|')
+        elif upper == 'NOT': intermediate.append('!')
+        elif token in ['(', ')']: intermediate.append(token)
+        else:
+            processed = token
+            if '~' in token:
+                processed = token.split('~')[0] + ':*'
+            elif '*' in token or '?' in token:
+                processed = token.replace('*', '').replace('?', '') + ':*'
+            intermediate.append(processed)
+            
+    # 3. Insert implied & (AND) between adjacent terms/groups
+    final = []
+    for i in range(len(intermediate)):
+        curr = intermediate[i]
+        final.append(curr)
+        if i < len(intermediate) - 1:
+            next_token = intermediate[i+1]
+            curr_is_operand = curr not in ['&', '|', '!', '(']
+            next_is_operand_start = next_token not in ['&', '|', ')']
+            if curr_is_operand and next_is_operand_start:
+                final.append('&')
+                
+    return "".join(final)
+
 @app.route('/search', methods=['POST'])
 def search():
     """
@@ -95,9 +135,12 @@ def search():
     query = data.get('query', '')
     user_id = data.get('user_id')
     
+    # Transform query for PostgreSQL to_tsquery
+    parsed_query = transform_to_tsquery(query)
+    
     # 1. Get results from Supabase PostgreSQL (Full Text Search)
     res = supabase.rpc('search_documents', {
-        'query_text': query,
+        'query_text': parsed_query,
         'p_user_id': user_id
     }).execute()
     results = res.data
