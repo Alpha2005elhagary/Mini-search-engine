@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:path/path.dart' as p;
 import '../../core/constants/api_constants.dart';
 
 class SearchRemoteDataSource {
@@ -49,38 +51,44 @@ class SearchRemoteDataSource {
     }
   }
 
-  /// Step 1: Upload to Supabase Storage
-  /// Step 2: Notify PythonAnywhere to download + save the file from the public URL
+  /// Upload file directly to PythonAnywhere via multipart form upload.
   Future<Map<String, dynamic>> uploadFile(String name, List<int> bytes) async {
-    final supabase = Supabase.instance.client;
-    final storagePath = 'documents/$name';
+    final uri = Uri.parse('${ApiConstants.baseUrl}/upload');
+    final ext = p.extension(name).toLowerCase().replaceAll('.', '');
+    
+    // Determine MIME type
+    final mimeType = {
+      'pdf': 'application/pdf',
+      'txt': 'text/plain',
+      'csv': 'text/csv',
+      'json': 'application/json',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }[ext] ?? 'application/octet-stream';
 
-    // 1. Upload to Supabase Storage bucket 'search-files'
-    await supabase.storage.from('search-files').uploadBinary(
-      storagePath,
-      bytes,
-      fileOptions: const FileOptions(upsert: true),
-    );
+    var request = http.MultipartRequest('POST', uri);
+    request.files.add(http.MultipartFile.fromBytes(
+      'file',
+      Uint8List.fromList(bytes),
+      filename: name,
+      contentType: MediaType.parse(mimeType),
+    ));
 
-    // 2. Get the public URL of the uploaded file
-    final publicUrl = supabase.storage.from('search-files').getPublicUrl(storagePath);
+    final streamedResponse = await request.send();
+    final responseString = await streamedResponse.stream.bytesToString();
 
-    // 3. Tell PythonAnywhere to download the file from Supabase and save it
-    final response = await http.post(
-      Uri.parse('${ApiConstants.baseUrl}/index-url'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'url': publicUrl,
-        'filename': name,
-      }),
-    );
+    // Detect HTML error pages (server not updated yet)
+    if (responseString.trimLeft().startsWith('<!')) {
+      throw Exception(
+        'Server not ready (HTTP ${streamedResponse.statusCode}). '
+        'Please reload your web app on PythonAnywhere.'
+      );
+    }
 
-    final responseBody = jsonDecode(response.body);
-
-    if (response.statusCode == 200) {
-      return responseBody;
+    if (streamedResponse.statusCode == 200) {
+      return jsonDecode(responseString);
     } else {
-      throw Exception('File uploaded to Supabase but server could not fetch it: ${responseBody['message'] ?? response.statusCode}');
+      final body = jsonDecode(responseString);
+      throw Exception(body['message'] ?? 'Failed to upload file (HTTP ${streamedResponse.statusCode})');
     }
   }
 }
