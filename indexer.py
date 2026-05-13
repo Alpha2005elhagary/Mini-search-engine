@@ -109,6 +109,17 @@ class Indexer:
             print(f"    ⚠️ Error: {e}")
             return False
     
+    def index_file_to_text(self, file_path, ext):
+        """Helper for API to just get text content using Python logic"""
+        try:
+            handler = HANDLERS.get(ext)
+            if not handler:
+                return None
+            return handler(file_path)
+        except Exception as e:
+            print(f"Extraction error: {e}")
+            return None
+
     def tokenize_and_index(self, doc_id, text):
         """Enhanced tokenization with better filtering for meaningful content"""
         # Normalize text to lowercase
