@@ -87662,7 +87662,7 @@ A.afF.prototype={
 hy(a,b,c,d){return this.a0j(a,b,c,d)},
 a0j(a,b,c,d){var s=0,r=A.D(t.P),q,p,o,n,m,l,k
 var $async$hy=A.E(function(e,f){if(e===1)return A.A(f,r)
-for(;;)switch(s){case 0:p=A.dr("https://Alpha2005elhagary.pythonanywhere.com/search",0,null)
+for(;;)switch(s){case 0:p=A.dr("https://Abdelrhman123.pythonanywhere.com/search",0,null)
 o=t.N
 n=A.a6(["Content-Type","application/json"],o,o)
 m=b==null?"":b
@@ -87678,7 +87678,7 @@ return A.C($async$hy,r)},
 l3(){var s=0,r=A.D(t.P),q,p
 var $async$l3=A.E(function(a,b){if(a===1)return A.A(b,r)
 for(;;)switch(s){case 0:s=3
-return A.w(A.aH7(A.dr("https://Alpha2005elhagary.pythonanywhere.com/stats",0,null),null),$async$l3)
+return A.w(A.aH7(A.dr("https://Abdelrhman123.pythonanywhere.com/stats",0,null),null),$async$l3)
 case 3:p=b
 if(p.b===200){q=B.a5.n_(A.ha(A.h8(p.e)).bD(p.w),null)
 s=1
@@ -87688,7 +87688,7 @@ return A.C($async$l3,r)},
 hc(a,b){return this.alC(a,b)},
 alC(a,b){var s=0,r=A.D(t.P),q,p,o,n,m
 var $async$hc=A.E(function(c,d){if(c===1)return A.A(d,r)
-for(;;)switch(s){case 0:p=A.dr("https://Alpha2005elhagary.pythonanywhere.com/build",0,null)
+for(;;)switch(s){case 0:p=A.dr("https://Abdelrhman123.pythonanywhere.com/build",0,null)
 o=t.N
 n=A.a6(["Content-Type","application/json"],o,o)
 s=3
