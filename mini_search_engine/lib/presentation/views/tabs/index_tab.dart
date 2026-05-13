@@ -122,7 +122,7 @@ class _IndexTabState extends State<IndexTab> {
                     padding: EdgeInsets.zero,
                   ),
                   onPressed: vm.isBuilding ? null : () async {
-                    FilePickerResult? result = await FilePicker.platform.pickFiles(withData: true);
+                    FilePickerResult? result = await FilePicker.pickFiles(withData: true);
                     if (result != null) {
                       final fileBytes = result.files.first.bytes;
                       final fileName = result.files.first.name;

@@ -33,6 +33,28 @@ def upload_file():
         file.save(file_path)
         return jsonify({'success': True, 'message': f'File {filename} uploaded successfully! Re-build the index to include it.'}), 200
 
+@app.route('/index-url', methods=['POST'])
+def index_from_url():
+    """Download a file from a public URL (e.g., Supabase Storage) and save it to the data folder."""
+    import urllib.request
+    data = request.json
+    file_url = data.get('url')
+    filename = data.get('filename')
+
+    if not file_url or not filename:
+        return jsonify({'success': False, 'message': 'Missing url or filename'}), 400
+
+    try:
+        safe_name = secure_filename(filename)
+        file_path = os.path.join(UPLOAD_FOLDER, safe_name)
+        urllib.request.urlretrieve(file_url, file_path)
+        return jsonify({
+            'success': True,
+            'message': f'✅ {safe_name} saved to server! Now tap "Start Indexing" to make it searchable.'
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Failed to download file: {str(e)}'}), 500
+
 @app.route('/build', methods=['POST'])
 def build_index():
     global search_engine, indexer

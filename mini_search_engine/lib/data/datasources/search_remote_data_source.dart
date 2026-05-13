@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/api_constants.dart';
 
 class SearchRemoteDataSource {
@@ -48,23 +49,38 @@ class SearchRemoteDataSource {
     }
   }
 
+  /// Step 1: Upload to Supabase Storage
+  /// Step 2: Notify PythonAnywhere to download + save the file from the public URL
   Future<Map<String, dynamic>> uploadFile(String name, List<int> bytes) async {
-    final uri = Uri.parse('${ApiConstants.baseUrl}/upload');
-    var request = http.MultipartRequest('POST', uri);
-    
-    request.files.add(http.MultipartFile.fromBytes(
-      'file',
+    final supabase = Supabase.instance.client;
+    final storagePath = 'documents/$name';
+
+    // 1. Upload to Supabase Storage bucket 'search-files'
+    await supabase.storage.from('search-files').uploadBinary(
+      storagePath,
       bytes,
-      filename: name,
-    ));
-    
-    final response = await request.send();
-    final responseString = await response.stream.bytesToString();
-    
+      fileOptions: const FileOptions(upsert: true),
+    );
+
+    // 2. Get the public URL of the uploaded file
+    final publicUrl = supabase.storage.from('search-files').getPublicUrl(storagePath);
+
+    // 3. Tell PythonAnywhere to download the file from Supabase and save it
+    final response = await http.post(
+      Uri.parse('${ApiConstants.baseUrl}/index-url'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'url': publicUrl,
+        'filename': name,
+      }),
+    );
+
+    final responseBody = jsonDecode(response.body);
+
     if (response.statusCode == 200) {
-      return jsonDecode(responseString);
+      return responseBody;
     } else {
-      throw Exception('Failed to upload file');
+      throw Exception('File uploaded to Supabase but server could not fetch it: ${responseBody['message'] ?? response.statusCode}');
     }
   }
 }
