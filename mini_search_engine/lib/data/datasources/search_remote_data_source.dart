@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:excel/excel.dart' as ex;
+import '../../core/constants/api_constants.dart';
+
 
 class SearchRemoteDataSource {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -13,9 +15,10 @@ class SearchRemoteDataSource {
     try {
       // 1. Try calling the Edge Function first
       final response = await _supabase.functions.invoke(
-        'search',
+        ApiConstants.searchFunction,
         body: {'query': query},
       );
+
 
       if (response.status == 200) {
         // Save search to history automatically
