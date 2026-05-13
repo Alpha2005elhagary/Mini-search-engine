@@ -3,14 +3,35 @@ from flask_cors import CORS
 from indexer import Indexer
 from search import SearchEngine
 from datetime import datetime
+from werkzeug.utils import secure_filename
 import os
 
 app = Flask(__name__)
 # Enable CORS for all routes to allow Flutter Web/Emulator connections
 CORS(app)
 
+UPLOAD_FOLDER = 'data'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 indexer = Indexer()
 search_engine = None
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'message': 'No file part'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'No selected file'}), 400
+        
+    if file:
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        return jsonify({'success': True, 'message': f'File {filename} uploaded successfully! Re-build the index to include it.'}), 200
 
 @app.route('/build', methods=['POST'])
 def build_index():

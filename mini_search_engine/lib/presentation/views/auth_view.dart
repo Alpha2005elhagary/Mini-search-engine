@@ -41,9 +41,13 @@ class _AuthViewState extends State<AuthView> {
       if (mounted && Supabase.instance.client.auth.currentSession != null) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeView()));
       }
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.redAccent));
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An unexpected error occurred.'), backgroundColor: Colors.redAccent));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

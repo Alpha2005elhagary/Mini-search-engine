@@ -20,4 +20,9 @@ class SearchRepositoryImpl implements SearchRepository {
   Future<Map<String, dynamic>> buildIndex(List<String> formats, String folder) async {
     return await remoteDataSource.buildIndex(formats, folder);
   }
+
+  @override
+  Future<Map<String, dynamic>> uploadFile(String name, List<int> bytes) async {
+    return await remoteDataSource.uploadFile(name, bytes);
+  }
 }

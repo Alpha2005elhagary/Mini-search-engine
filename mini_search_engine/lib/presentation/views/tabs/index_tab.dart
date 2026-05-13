@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../viewmodels/search_viewmodel.dart';
 import '../../widgets/glass_card.dart';
 
@@ -38,7 +39,13 @@ class _IndexTabState extends State<IndexTab> {
                 children: [
                   Icon(Icons.rocket_launch, color: Colors.cyanAccent, size: 28),
                   SizedBox(width: 10),
-                  Text('Build Document Index', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text(
+                      'Build Document Index', 
+                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
@@ -103,6 +110,42 @@ class _IndexTabState extends State<IndexTab> {
                 ),
               ),
               const SizedBox(height: 30),
+              
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    padding: EdgeInsets.zero,
+                  ),
+                  onPressed: vm.isBuilding ? null : () async {
+                    FilePickerResult? result = await FilePicker.platform.pickFiles(withData: true);
+                    if (result != null) {
+                      final fileBytes = result.files.first.bytes;
+                      final fileName = result.files.first.name;
+                      if (fileBytes != null) {
+                        vm.uploadFile(fileName, fileBytes.toList());
+                      }
+                    }
+                  },
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Colors.purpleAccent, Colors.deepPurple]),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [BoxShadow(color: Colors.purple.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))],
+                    ),
+                    child: Center(
+                      child: vm.isBuilding 
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('UPLOAD A FILE', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               
               SizedBox(
                 width: double.infinity,

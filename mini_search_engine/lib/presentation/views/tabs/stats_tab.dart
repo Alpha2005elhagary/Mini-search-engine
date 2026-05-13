@@ -12,6 +12,25 @@ class StatsTab extends StatelessWidget {
     final vm = context.watch<SearchViewModel>();
     final stats = vm.stats;
 
+    if (vm.statsHasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud_off, color: Colors.redAccent, size: 48),
+            const SizedBox(height: 16),
+            const Text('Could not connect to Python backend.', style: TextStyle(color: Colors.white, fontSize: 16)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => vm.fetchStats(),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent),
+              child: const Text('Retry Connection', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            )
+          ],
+        )
+      );
+    }
+
     if (stats == null) return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
     if (stats['total_docs'] == 0) return const Center(child: Text('No documents indexed yet.', style: TextStyle(color: Colors.white, fontSize: 18)));
 

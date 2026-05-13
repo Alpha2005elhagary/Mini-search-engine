@@ -26,6 +26,9 @@ class SearchViewModel extends ChangeNotifier {
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? get stats => _stats;
 
+  bool _statsHasError = false;
+  bool get statsHasError => _statsHasError;
+
   Future<void> search(String query, {String? dateFrom, String? dateTo, String? fileType}) async {
     if (query.isEmpty) return;
     _isLoading = true;
@@ -51,13 +54,16 @@ class SearchViewModel extends ChangeNotifier {
   }
 
   Future<void> fetchStats() async {
+    _statsHasError = false;
     try {
       _stats = await repository.getStats();
       notifyListeners();
     } catch (e) {
+      _statsHasError = true;
       if (kDebugMode) {
         print('Stats error: $e');
       }
+      notifyListeners();
     }
   }
 
@@ -73,6 +79,23 @@ class SearchViewModel extends ChangeNotifier {
     } catch (e) {
       _buildMessage = "Error building index: $e";
       if (kDebugMode) print('Build index error: $e');
+    } finally {
+      _isBuilding = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> uploadFile(String name, List<int> bytes) async {
+    _isBuilding = true;
+    _buildMessage = "Uploading $name... please wait";
+    notifyListeners();
+
+    try {
+      final response = await repository.uploadFile(name, bytes);
+      _buildMessage = response['message'];
+    } catch (e) {
+      _buildMessage = "Error uploading file: $e";
+      if (kDebugMode) print('Upload file error: $e');
     } finally {
       _isBuilding = false;
       notifyListeners();
