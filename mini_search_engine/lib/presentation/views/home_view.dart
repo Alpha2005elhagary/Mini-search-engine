@@ -34,6 +34,7 @@ class _HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin
   }
 
   Future<void> _handleLogout() async {
+    context.read<SearchViewModel>().reset();
     await Supabase.instance.client.auth.signOut();
     if (mounted) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthView()));

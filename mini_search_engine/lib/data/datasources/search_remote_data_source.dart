@@ -10,42 +10,116 @@ import '../../core/constants/api_constants.dart';
 class SearchRemoteDataSource {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// Perform search using Supabase Edge Functions (with direct fallback)
+  /// Perform search using Supabase direct DB (fully local suggestion)
   Future<Map<String, dynamic>> search(String query, {String? dateFrom, String? dateTo, String? fileType}) async {
     try {
-      // 1. Try calling the Edge Function first
-      final response = await _supabase.functions.invoke(
-        ApiConstants.searchFunction,
-        body: {'query': query},
-      );
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not logged in');
 
+      _saveSearchToHistory(query);
 
-      if (response.status == 200) {
-        // Save search to history automatically
-        _saveSearchToHistory(query);
+      // 1. Fetch user's OWN documents only (strict user_id filter)
+      var dbQuery = _supabase
+          .from('documents')
+          .select('filename, file_type, content, created_at')
+          .eq('user_id', userId);
 
-        final data = response.data;
-        final List<dynamic> resultsJson = data['results'] ?? [];
-        final results = resultsJson.map((doc) => {
-          'filename': doc['filename'],
-          'type': doc['file_type'],
-          'score': 1.0,
-          'date': doc['created_at'],
-          'snippet': _generateSnippet(doc['content'], query),
-        }).toList();
+      if (fileType != null) dbQuery = dbQuery.eq('file_type', fileType);
 
-        return {'results': results, 'suggestion': data['suggestion']};
+      final List<dynamic> allDocs = await dbQuery;
+
+      // 2. Local search: filter documents that match the query
+      final lowerQuery = query.toLowerCase()
+          .replaceAll(RegExp(r'~\d*'), '') // remove fuzzy notation
+          .replaceAll(RegExp(r'[*?]'), '') // remove wildcards
+          .replaceAll(RegExp(r'\b(AND|OR|NOT)\b'), '') // remove boolean ops
+          .trim();
+
+      final results = allDocs.where((doc) {
+        final content = (doc['content'] as String? ?? '').toLowerCase();
+        final filename = (doc['filename'] as String? ?? '').toLowerCase();
+        return content.contains(lowerQuery) || filename.contains(lowerQuery);
+      }).map((doc) => {
+        'filename': doc['filename'],
+        'fileType': doc['file_type'],
+        'date': doc['created_at'],
+        'snippet': _generateSnippet(doc['content'] ?? '', query),
+      }).toList();
+
+      // 3. "Did you mean?" - built LOCALLY from this user's OWN words only
+      // No server call. No leakage possible.
+      String? suggestion;
+      if (results.isEmpty && lowerQuery.isNotEmpty) {
+        suggestion = _localSuggest(lowerQuery, allDocs);
       }
-      return _searchDirect(query);
+
+      return {'results': results, 'suggestion': suggestion};
     } catch (e) {
-      print('Edge Function Error, falling back to direct search: $e');
-      return _searchDirect(query);
+      print('Search error: $e');
+      return {'results': [], 'suggestion': null};
     }
+  }
+
+  /// Build a "Did you mean?" suggestion purely from the user's OWN document words
+  String? _localSuggest(String query, List<dynamic> userDocs) {
+    // Collect all words from this user's documents
+    final Set<String> vocabulary = {};
+    for (final doc in userDocs) {
+      final words = (doc['content'] as String? ?? '')
+          .toLowerCase()
+          .split(RegExp(r'\W+'))
+          .where((w) => w.length > 3);
+      vocabulary.addAll(words);
+      // Also add filename words
+      vocabulary.addAll(
+        (doc['filename'] as String? ?? '')
+            .toLowerCase()
+            .split(RegExp(r'[\W_]+'))
+            .where((w) => w.length > 2),
+      );
+    }
+
+    if (vocabulary.isEmpty) return null;
+
+    // Find the closest word using Levenshtein distance
+    String? best;
+    int bestDist = 999;
+    for (final word in vocabulary) {
+      final dist = _levenshtein(query, word);
+      // Only suggest if similar enough (distance <= 2 or similarity > 60%)
+      if (dist < bestDist && dist <= 2) {
+        bestDist = dist;
+        best = word;
+      }
+    }
+    return best;
+  }
+
+  /// Levenshtein distance for local fuzzy matching
+  int _levenshtein(String s, String t) {
+    if (s == t) return 0;
+    if (s.isEmpty) return t.length;
+    if (t.isEmpty) return s.length;
+    // Limit to short words for performance
+    if (s.length > 20 || t.length > 20) return 999;
+
+    final d = List.generate(s.length + 1, (i) => List.generate(t.length + 1, (j) => j == 0 ? i : (i == 0 ? j : 0)));
+    for (int i = 1; i <= s.length; i++) {
+      for (int j = 1; j <= t.length; j++) {
+        final cost = s[i - 1] == t[j - 1] ? 0 : 1;
+        d[i][j] = [d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost].reduce((a, b) => a < b ? a : b);
+      }
+    }
+    return d[s.length][t.length];
   }
 
   Future<void> _saveSearchToHistory(String query) async {
     try {
-      await _supabase.from('search_history').insert({'query': query});
+      final userId = _supabase.auth.currentUser?.id;
+      await _supabase.from('search_history').insert({
+        'query': query,
+        'user_id': userId,
+      });
     } catch (e) {
       print('History saving failed: $e');
     }
@@ -57,9 +131,13 @@ class SearchRemoteDataSource {
       // Save history even in fallback mode
       _saveSearchToHistory(query);
 
+      final userId = _supabase.auth.currentUser?.id;
       final List<dynamic> response = await _supabase.rpc(
         'search_documents',
-        params: {'query_text': query},
+        params: {
+          'query_text': query,
+          'p_user_id': userId,
+        },
       );
 
       final results = response.map((doc) => {
@@ -78,18 +156,36 @@ class SearchRemoteDataSource {
 
   Future<Map<String, dynamic>> getStats() async {
     try {
-      final response = await _supabase.from('documents').select('file_type');
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not logged in');
+      
+      final response = await _supabase.from('documents').select('file_type, content').eq('user_id', userId);
+      
       final typeCounts = <String, int>{};
+      final wordCounts = <String, int>{};
+      
       for (var row in response) {
         final type = (row['file_type'] as String).toUpperCase();
         typeCounts[type] = (typeCounts[type] ?? 0) + 1;
+        
+        final content = row['content'] as String? ?? '';
+        // Basic word frequency analysis
+        final words = content.toLowerCase().split(RegExp(r'\W+')).where((w) => w.length > 3);
+        for (var word in words) {
+          wordCounts[word] = (wordCounts[word] ?? 0) + 1;
+        }
       }
+
+      final sortedTerms = wordCounts.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      
+      final topTerms = sortedTerms.take(10).map((e) => [e.key, e.value]).toList();
 
       return {
         'total_docs': response.length,
         'type_breakdown': typeCounts,
-        'unique_terms': 0,
-        'top_terms': [],
+        'unique_terms': wordCounts.length,
+        'top_terms': topTerms,
       };
     } catch (e) {
       throw Exception('Failed to load stats: $e');
@@ -131,6 +227,7 @@ class SearchRemoteDataSource {
         'file_path': storagePath,
         'content': content,
         'file_type': extension.replaceFirst('.', '').toUpperCase(),
+        'user_id': _supabase.auth.currentUser?.id,
       }, onConflict: 'file_path');
 
       return {

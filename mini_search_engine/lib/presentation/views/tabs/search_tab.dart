@@ -216,10 +216,14 @@ class _SearchTabState extends State<SearchTab> {
                       child: InkWell(
                         onTap: () async {
                           // Fetch full content from Supabase
+                          final userId = Supabase.instance.client.auth.currentUser?.id;
+                          if (userId == null) return;
+
                           final response = await Supabase.instance.client
                               .from('documents')
                               .select('content')
                               .eq('filename', result.filename)
+                              .eq('user_id', userId)
                               .single();
                           
                           if (mounted) {
@@ -266,12 +270,6 @@ class _SearchTabState extends State<SearchTab> {
                             const SizedBox(height: 12),
                             Row(
                               children: [
-                                const Icon(Icons.star_border, color: Colors.amberAccent, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Score: ${result.score.toStringAsFixed(2)}',
-                                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                                ),
                                 const Spacer(),
                                 Flexible(
                                   child: Text(
@@ -317,36 +315,35 @@ class _SearchTabState extends State<SearchTab> {
 
   Widget _buildHighlightedSnippet(String snippet, String query) {
     if (snippet.isEmpty) return const Text('No preview available', style: TextStyle(color: Colors.white54));
-    if (query.isEmpty) return Text(snippet, style: TextStyle(color: Colors.white.withOpacity(0.8), height: 1.5, fontSize: 14), maxLines: 3, overflow: TextOverflow.ellipsis);
 
     final List<TextSpan> spans = [];
-    final String lowerSnippet = snippet.toLowerCase();
-    final String lowerQuery = query.toLowerCase();
     
-    int start = 0;
-    int index = lowerSnippet.indexOf(lowerQuery);
+    // Parse <mark> tags from ts_headline
+    final parts = snippet.split(RegExp(r'<mark>|</mark>'));
+    final List<String> marks = RegExp(r'<mark>(.*?)</mark>').allMatches(snippet).map((m) => m.group(1)!).toList();
+    
+    int markIdx = 0;
+    bool isMark = snippet.startsWith('<mark>');
 
-    while (index != -1) {
-      if (index > start) {
-        spans.add(TextSpan(text: snippet.substring(start, index)));
-      }
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].isEmpty) continue;
+      
+      final bool highlight = isMark ? (i % 2 == 0) : (i % 2 != 0);
+
       spans.add(TextSpan(
-        text: snippet.substring(index, index + query.length),
-        style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, backgroundColor: Colors.white12),
+        text: parts[i],
+        style: TextStyle(
+          color: highlight ? Colors.cyanAccent : Colors.white.withOpacity(0.8),
+          fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
+          backgroundColor: highlight ? Colors.white12 : null,
+        ),
       ));
-      start = index + query.length;
-      index = lowerSnippet.indexOf(lowerQuery, start);
-    }
-
-    if (start < snippet.length) {
-      spans.add(TextSpan(text: snippet.substring(start)));
     }
 
     return Directionality(
       textDirection: _isArabic(snippet) ? TextDirection.rtl : TextDirection.ltr,
       child: RichText(
         textAlign: TextAlign.start,
-        textDirection: _isArabic(snippet) ? TextDirection.rtl : TextDirection.ltr,
         text: TextSpan(
           style: TextStyle(color: Colors.white.withOpacity(0.8), height: 1.5, fontSize: 14, fontFamily: 'Inter'),
           children: spans,

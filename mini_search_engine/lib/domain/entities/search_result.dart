@@ -1,14 +1,12 @@
 class SearchResult {
   final String filename;
   final String type;
-  final double score;
   final String date;
   final String snippet;
 
   SearchResult({
     required this.filename,
     required this.type,
-    required this.score,
     required this.date,
     required this.snippet,
   });
@@ -16,9 +14,8 @@ class SearchResult {
   factory SearchResult.fromJson(Map<String, dynamic> json) {
     return SearchResult(
       filename: json['filename'] ?? '',
-      type: json['type'] ?? '',
-      score: (json['score'] ?? 0).toDouble(),
-      date: json['date'] ?? '',
+      type: json['fileType'] ?? json['file_type'] ?? json['type'] ?? '',
+      date: json['date'] ?? json['modifiedAt'] ?? json['created_at'] ?? '',
       snippet: json['snippet'] ?? '',
     );
   }

@@ -41,6 +41,7 @@ def process_supabase_file():
     data = request.json
     filename = data.get('filename')
     storage_path = data.get('storage_path') # e.g. 'documents/myfile.pdf'
+    user_id = data.get('user_id')
 
     if not filename or not storage_path:
         return jsonify({'success': False, 'message': 'Missing filename or storage_path'}), 400
@@ -57,6 +58,9 @@ def process_supabase_file():
         ext = os.path.splitext(filename)[1].lower()
         content = indexer.index_file_to_text(local_path, ext)
         
+        # Capture modification time
+        mtime = datetime.fromtimestamp(os.path.getmtime(local_path)).isoformat()
+        
         if not content:
             return jsonify({'success': False, 'message': 'Failed to extract text from file'}), 500
 
@@ -65,7 +69,9 @@ def process_supabase_file():
             'filename': filename,
             'file_path': storage_path,
             'content': content,
-            'file_type': ext.replace('.', '').upper()
+            'file_type': ext.replace('.', '').upper(),
+            'user_id': user_id,
+            'modified_at': mtime
         }, on_conflict='file_path').execute()
 
         # Clean up local file
@@ -87,9 +93,13 @@ def search():
     """
     data = request.json
     query = data.get('query', '')
+    user_id = data.get('user_id')
     
     # 1. Get results from Supabase PostgreSQL (Full Text Search)
-    res = supabase.rpc('search_documents', {'query_text': query}).execute()
+    res = supabase.rpc('search_documents', {
+        'query_text': query,
+        'p_user_id': user_id
+    }).execute()
     results = res.data
 
     # 2. Use Python logic for 'Did You Mean' suggestions
@@ -109,7 +119,11 @@ def search():
 @app.route('/stats', methods=['GET'])
 def stats():
     """Fetches real-time stats from Supabase via Python"""
-    res = supabase.table('documents').select('file_type').execute()
+    user_id = request.args.get('user_id')
+    query = supabase.table('documents').select('file_type')
+    if user_id:
+        query = query.eq('user_id', user_id)
+    res = query.execute()
     data = res.data
     
     type_counts = {}

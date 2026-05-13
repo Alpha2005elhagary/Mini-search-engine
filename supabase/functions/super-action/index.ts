@@ -17,10 +17,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    const authHeader = req.headers.get('Authorization');
+    const { data: { user } } = await supabaseClient.auth.getUser(authHeader?.replace('Bearer ', '') ?? '');
+    const userId = user?.id;
+
     // Get live stats for the "Super Action"
     const { count, error } = await supabaseClient
       .from('documents')
       .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
 
     if (error) throw error
 

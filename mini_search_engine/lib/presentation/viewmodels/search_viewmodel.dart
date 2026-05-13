@@ -53,9 +53,6 @@ class SearchViewModel extends ChangeNotifier {
       final List<dynamic> resultsJson = response['results'] ?? [];
       _results = resultsJson.map((json) => SearchResult.fromJson(json)).toList();
       
-      // Save to Supabase (non-blocking)
-      _saveSearchToSupabase(query);
-      
     } catch (e) {
       if (kDebugMode) {
         print('Search error: $e');
@@ -124,10 +121,23 @@ class SearchViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void reset() {
+    _results = [];
+    _stats = null;
+    _suggestion = null;
+    _statsHasError = false;
+    _predefinedFileType = null;
+    _activeTabIndex = 0;
+    _buildMessage = null;
+    notifyListeners();
+  }
+
   Future<void> _saveSearchToSupabase(String query) async {
     try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
       await Supabase.instance.client.from('search_history').insert({
         'query': query,
+        'user_id': userId,
         'created_at': DateTime.now().toUtc().toIso8601String(),
       });
     } catch (e) {
