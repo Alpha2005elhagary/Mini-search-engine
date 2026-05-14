@@ -7,8 +7,8 @@ class SearchRepositoryImpl implements SearchRepository {
   SearchRepositoryImpl(this.remoteDataSource);
 
   @override
-  Future<Map<String, dynamic>> search(String query, {String? dateFrom, String? dateTo, String? fileType}) async {
-    return await remoteDataSource.search(query, dateFrom: dateFrom, dateTo: dateTo, fileType: fileType);
+  Future<Map<String, dynamic>> search(String query, {String? dateFrom, String? dateTo, String? fileType, int page = 1, int limit = 5}) async {
+    return await remoteDataSource.search(query, dateFrom: dateFrom, dateTo: dateTo, fileType: fileType, page: page, limit: limit);
   }
 
   @override
